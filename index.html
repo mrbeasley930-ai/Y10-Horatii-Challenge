@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena Latina — Unit 18: The Horatii and Curiatii</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f0d0b; color: #e8e0d0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+  #root { min-height: 100vh; }
+  input:focus { border-color: #d4a843 !important; outline: none; }
+  button:hover:not(:disabled) { filter: brightness(1.1); }
+  details summary { list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes pulseGold { 0%,100% { box-shadow: 0 0 8px #9a7a3040; } 50% { box-shadow: 0 0 20px #d4a84340; } }
+  .pulse-gold { animation: pulseGold 2s infinite; }
+  @keyframes streakFire { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+  .streak-anim { animation: streakFire 0.4s ease; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ============================================================
+// THEME
+// ============================================================
+const T = {
+  bg: "#0f0d0b", surface: "#1a1611", surfaceLight: "#24201a", surfaceHover: "#2e2920",
+  border: "#3a3328", borderLight: "#4d4435",
+  gold: "#d4a843", goldDim: "#9a7a30", goldBright: "#f0c24e", bronze: "#b08040",
+  crimson: "#9b2335", crimsonLight: "#c43050", crimsonDark: "#6a1825",
+  text: "#e8e0d0", textDim: "#a09888", textMuted: "#6a6258",
+  green: "#4a9a5c", greenLight: "#60c078", greenDark: "#2a6a3a",
+  red: "#c43050", blue: "#4a7a9a", purple: "#7a5aa0",
+};
+const SERIF = "'Palatino Linotype','Book Antiqua',Palatino,Georgia,serif";
+const SANS = "'Segoe UI',Tahoma,Geneva,Verdana,sans-serif";
+
+// ============================================================
+// STORAGE — localStorage for GitHub Pages
+// ============================================================
+function loadUser() {
+  try { const d = localStorage.getItem("arena-latina-user"); return d ? JSON.parse(d) : null; } catch { return null; }
+}
+function saveUser(user) {
+  try { localStorage.setItem("arena-latina-user", JSON.stringify(user)); } catch(e) { console.error(e); }
+}
+function loadLeaderboard() {
+  try { const d = localStorage.getItem("arena-latina-lb"); return d ? JSON.parse(d) : {}; } catch { return {}; }
+}
+function saveLeaderboard(lb) {
+  try { localStorage.setItem("arena-latina-lb", JSON.stringify(lb)); } catch(e) { console.error(e); }
+}
+function updateLeaderboard(username, classGroup, totalXP) {
+  const lb = loadLeaderboard();
+  lb[username] = { name: username, classGroup, xp: totalXP, updated: Date.now() };
+  saveLeaderboard(lb);
+}
+
+// ============================================================
+// DECLENSION DATA
+// ============================================================
+const DECLENSIONS = {
+  first: {
+    label: "1st Declension", nouns: [
+      { nom:"puella", stem:"puell", meaning:"girl" }, { nom:"terra", stem:"terr", meaning:"land" },
+      { nom:"via", stem:"vi", meaning:"road" }, { nom:"hora", stem:"hor", meaning:"hour" },
+      { nom:"ira", stem:"ir", meaning:"anger" }, { nom:"cura", stem:"cur", meaning:"care" },
+      { nom:"porta", stem:"port", meaning:"gate" }, { nom:"filia", stem:"fili", meaning:"daughter" },
+      { nom:"femina", stem:"femin", meaning:"woman" }, { nom:"epistula", stem:"epistul", meaning:"letter" },
+      { nom:"regina", stem:"regin", meaning:"queen" }, { nom:"turba", stem:"turb", meaning:"crowd" },
+      { nom:"villa", stem:"vill", meaning:"house" }, { nom:"insula", stem:"insul", meaning:"island" },
+      { nom:"taberna", stem:"tabern", meaning:"shop" }, { nom:"domina", stem:"domin", meaning:"mistress" },
+    ],
+    endings: { "nom.sg":"a","acc.sg":"am","gen.sg":"ae","dat.sg":"ae","abl.sg":"ā","nom.pl":"ae","acc.pl":"ās","gen.pl":"ārum","dat.pl":"īs","abl.pl":"īs" }
+  },
+  second: {
+    label: "2nd Declension (-us)", nouns: [
+      { nom:"servus", stem:"serv", meaning:"slave" }, { nom:"gladius", stem:"gladi", meaning:"sword" },
+      { nom:"filius", stem:"fili", meaning:"son" }, { nom:"murus", stem:"mur", meaning:"wall" },
+      { nom:"animus", stem:"anim", meaning:"spirit" }, { nom:"dominus", stem:"domin", meaning:"master" },
+      { nom:"amicus", stem:"amic", meaning:"friend" }, { nom:"equus", stem:"equ", meaning:"horse" },
+      { nom:"nuntius", stem:"nunti", meaning:"messenger" }, { nom:"populus", stem:"popul", meaning:"people" },
+      { nom:"legatus", stem:"legat", meaning:"commander" }, { nom:"maritus", stem:"marit", meaning:"husband" },
+      { nom:"libertus", stem:"libert", meaning:"freedman" }, { nom:"hortus", stem:"hort", meaning:"garden" },
+    ],
+    endings: { "nom.sg":"us","acc.sg":"um","gen.sg":"ī","dat.sg":"ō","abl.sg":"ō","nom.pl":"ī","acc.pl":"ōs","gen.pl":"ōrum","dat.pl":"īs","abl.pl":"īs" }
+  },
+  secondN: {
+    label: "2nd Declension (-um)", nouns: [
+      { nom:"bellum", stem:"bell", meaning:"war" }, { nom:"consilium", stem:"consili", meaning:"plan" },
+      { nom:"praemium", stem:"praemi", meaning:"reward" }, { nom:"signum", stem:"sign", meaning:"signal" },
+      { nom:"verbum", stem:"verb", meaning:"word" }, { nom:"donum", stem:"don", meaning:"gift" },
+      { nom:"templum", stem:"templ", meaning:"temple" }, { nom:"periculum", stem:"pericul", meaning:"danger" },
+      { nom:"oppidum", stem:"oppid", meaning:"town" }, { nom:"forum", stem:"for", meaning:"forum" },
+      { nom:"imperium", stem:"imperi", meaning:"empire" }, { nom:"vinum", stem:"vin", meaning:"wine" },
+    ],
+    endings: { "nom.sg":"um","acc.sg":"um","gen.sg":"ī","dat.sg":"ō","abl.sg":"ō","nom.pl":"a","acc.pl":"a","gen.pl":"ōrum","dat.pl":"īs","abl.pl":"īs" }
+  },
+  third: {
+    label: "3rd Declension", nouns: [
+      { nom:"miles", stem:"milit", meaning:"soldier" }, { nom:"rex", stem:"reg", meaning:"king" },
+      { nom:"frater", stem:"fratr", meaning:"brother" }, { nom:"mors", stem:"mort", meaning:"death" },
+      { nom:"dux", stem:"duc", meaning:"leader" }, { nom:"hostis", stem:"host", meaning:"enemy" },
+      { nom:"virtus", stem:"virtut", meaning:"courage" }, { nom:"vulnus", stem:"vulner", meaning:"wound" },
+      { nom:"soror", stem:"sorōr", meaning:"sister" }, { nom:"sanguis", stem:"sanguin", meaning:"blood" },
+      { nom:"pater", stem:"patr", meaning:"father" }, { nom:"mater", stem:"matr", meaning:"mother" },
+      { nom:"comes", stem:"comit", meaning:"companion" }, { nom:"custos", stem:"custod", meaning:"guard" },
+      { nom:"legio", stem:"legiōn", meaning:"legion" }, { nom:"homo", stem:"homin", meaning:"person" },
+      { nom:"corpus", stem:"corpor", meaning:"body" }, { nom:"nomen", stem:"nomin", meaning:"name" },
+      { nom:"princeps", stem:"princip", meaning:"chief" }, { nom:"urbs", stem:"urb", meaning:"city" },
+    ],
+    endings: { "nom.sg":"(varies)","acc.sg":"em","gen.sg":"is","dat.sg":"ī","abl.sg":"e","nom.pl":"ēs","acc.pl":"ēs","gen.pl":"um","dat.pl":"ibus","abl.pl":"ibus" }
+  }
+};
+const CASE_NAMES = ["nominative","accusative","genitive","dative","ablative"];
+const CASE_JOBS = {
+  nominative:"subject — who does the action",
+  accusative:"object — who receives the action",
+  genitive:"possession — 'of'",
+  dative:"indirect object — 'to/for'",
+  ablative:"by/with/from — instrument, manner, or agent"
+};
+
+function generateDeclensionQuestions(count) {
+  const qs = []; const decKeys = Object.keys(DECLENSIONS);
+  for (let i = 0; i < count; i++) {
+    const dk = decKeys[Math.floor(Math.random()*decKeys.length)];
+    const dec = DECLENSIONS[dk];
+    const noun = dec.nouns[Math.floor(Math.random()*dec.nouns.length)];
+    const caseIdx = Math.floor(Math.random()*5);
+    const num = Math.random()>0.5?"sg":"pl";
+    const caseName = CASE_NAMES[caseIdx];
+    const endingKey = caseName.substring(0,3)+"."+num;
+    const correctEnding = dec.endings[endingKey];
+    let form;
+    if (dk==="third" && caseName==="nominative" && num==="sg") form = noun.nom;
+    else form = noun.stem + correctEnding;
+    const options = [
+      { text: caseName, correct: true },
+      ...CASE_NAMES.filter(c=>c!==caseName).sort(()=>Math.random()-0.5).slice(0,3).map(c=>({text:c,correct:false}))
+    ].sort(()=>Math.random()-0.5);
+    qs.push({ type:"identify_case", form, noun:noun.nom, meaning:noun.meaning, number:num==="sg"?"singular":"plural",
+      declension:dec.label, correctCase:caseName, correctJob:CASE_JOBS[caseName], options });
+  }
+  return qs;
+}
+
+// ============================================================
+// VERB DATA
+// ============================================================
+const VERBS = [
+  { inf:"pugnare",conj:1,stem:"pugn",perfStem:"pugnav",meaning:"fight" },
+  { inf:"necare",conj:1,stem:"nec",perfStem:"necav",meaning:"kill" },
+  { inf:"vocare",conj:1,stem:"voc",perfStem:"vocav",meaning:"call" },
+  { inf:"parare",conj:1,stem:"par",perfStem:"parav",meaning:"prepare" },
+  { inf:"laudare",conj:1,stem:"laud",perfStem:"laudav",meaning:"praise" },
+  { inf:"narrare",conj:1,stem:"narr",perfStem:"narrav",meaning:"tell" },
+  { inf:"spectare",conj:1,stem:"spect",perfStem:"spectav",meaning:"watch" },
+  { inf:"laborare",conj:1,stem:"labor",perfStem:"laborav",meaning:"work" },
+  { inf:"videre",conj:2,stem:"vid",perfStem:"vid",meaning:"see" },
+  { inf:"habere",conj:2,stem:"hab",perfStem:"habu",meaning:"have" },
+  { inf:"timere",conj:2,stem:"tim",perfStem:"timu",meaning:"fear" },
+  { inf:"manere",conj:2,stem:"man",perfStem:"mans",meaning:"remain" },
+  { inf:"monere",conj:2,stem:"mon",perfStem:"monu",meaning:"warn" },
+  { inf:"terrere",conj:2,stem:"terr",perfStem:"terru",meaning:"frighten" },
+  { inf:"ducere",conj:3,stem:"duc",perfStem:"dux",meaning:"lead" },
+  { inf:"currere",conj:3,stem:"curr",perfStem:"cucurr",meaning:"run" },
+  { inf:"vincere",conj:3,stem:"vinc",perfStem:"vic",meaning:"conquer" },
+  { inf:"mittere",conj:3,stem:"mitt",perfStem:"mis",meaning:"send" },
+  { inf:"interficere",conj:3,stem:"interfic",perfStem:"interfec",meaning:"kill" },
+  { inf:"scribere",conj:3,stem:"scrib",perfStem:"scrips",meaning:"write" },
+  { inf:"vertere",conj:3,stem:"vert",perfStem:"vert",meaning:"turn" },
+  { inf:"relinquere",conj:3,stem:"relinqu",perfStem:"reliq",meaning:"leave behind" },
+  { inf:"petere",conj:3,stem:"pet",perfStem:"petiv",meaning:"seek/attack" },
+  { inf:"audire",conj:4,stem:"aud",perfStem:"audiv",meaning:"hear" },
+  { inf:"venire",conj:4,stem:"ven",perfStem:"ven",meaning:"come" },
+  { inf:"dormire",conj:4,stem:"dorm",perfStem:"dormiv",meaning:"sleep" },
+  { inf:"munire",conj:4,stem:"mun",perfStem:"muniv",meaning:"fortify" },
+  { inf:"scire",conj:4,stem:"sc",perfStem:"sciv",meaning:"know" },
+];
+const PERSONS = [
+  {label:"1st sg (I)",idx:0},{label:"2nd sg (you)",idx:1},{label:"3rd sg (he/she/it)",idx:2},
+  {label:"1st pl (we)",idx:3},{label:"2nd pl (you pl)",idx:4},{label:"3rd pl (they)",idx:5},
+];
+const TENSES = ["present","imperfect","perfect","future","pluperfect"];
+
+function conjugate(verb, tense, pIdx) {
+  const {conj,stem,perfStem} = verb;
+  const pe1=["ō","ās","at","āmus","ātis","ant"], pe2=["eō","ēs","et","ēmus","ētis","ent"],
+    pe3=["ō","is","it","imus","itis","unt"], pe4=["iō","īs","it","īmus","ītis","iunt"];
+  const ie1=["ābam","ābās","ābat","ābāmus","ābātis","ābant"], ie2=["ēbam","ēbās","ēbat","ēbāmus","ēbātis","ēbant"],
+    ie3=["ēbam","ēbās","ēbat","ēbāmus","ēbātis","ēbant"], ie4=["iēbam","iēbās","iēbat","iēbāmus","iēbātis","iēbant"];
+  const pfe=["ī","istī","it","imus","istis","ērunt"];
+  const fe1=["ābō","ābis","ābit","ābimus","ābitis","ābunt"], fe2=["ēbō","ēbis","ēbit","ēbimus","ēbitis","ēbunt"],
+    fe3=["am","ēs","et","ēmus","ētis","ent"], fe4=["iam","iēs","iet","iēmus","iētis","ient"];
+  const ple=["eram","erās","erat","erāmus","erātis","erant"];
+  switch(tense) {
+    case "present": return stem+(conj===1?pe1:conj===2?pe2:conj===3?pe3:pe4)[pIdx];
+    case "imperfect": return stem+(conj===1?ie1:conj===2?ie2:conj===3?ie3:ie4)[pIdx];
+    case "perfect": return perfStem+pfe[pIdx];
+    case "future": return stem+(conj===1?fe1:conj===2?fe2:conj===3?fe3:fe4)[pIdx];
+    case "pluperfect": return perfStem+ple[pIdx];
+    default: return stem;
+  }
+}
+
+function generateVerbQuestions(count, allowedTenses) {
+  const qs = [];
+  for (let i=0;i<count;i++) {
+    const verb = VERBS[Math.floor(Math.random()*VERBS.length)];
+    const tense = allowedTenses[Math.floor(Math.random()*allowedTenses.length)];
+    const person = PERSONS[Math.floor(Math.random()*PERSONS.length)];
+    const correctForm = conjugate(verb,tense,person.idx);
+    if (Math.random()>0.5) {
+      const options = allowedTenses.map(t=>({text:t,correct:t===tense})).sort(()=>Math.random()-0.5);
+      qs.push({ mode:"identify_tense", prompt:'What tense is "'+correctForm+'"?',
+        subPrompt:verb.inf+" ("+verb.meaning+") — "+person.label, correctAnswer:tense, options,
+        explanation:correctForm+" is the "+tense+" tense, "+person.label+" of "+verb.inf+" (to "+verb.meaning+")." });
+    } else {
+      const wrongForms = [];
+      const otherTenses = allowedTenses.filter(t=>t!==tense);
+      for (let j=0;j<3&&j<otherTenses.length;j++) wrongForms.push(conjugate(verb,otherTenses[j],person.idx));
+      while(wrongForms.length<3) {
+        const op=PERSONS[Math.floor(Math.random()*PERSONS.length)];
+        const f=conjugate(verb,tense,op.idx);
+        if(f!==correctForm&&!wrongForms.includes(f)) wrongForms.push(f);
+      }
+      const options = [{text:correctForm,correct:true},...wrongForms.slice(0,3).map(f=>({text:f,correct:false}))].sort(()=>Math.random()-0.5);
+      qs.push({ mode:"pick_form", prompt:"Give the "+tense+" tense, "+person.label+" of:",
+        subPrompt:verb.inf+" (to "+verb.meaning+")", correctAnswer:correctForm, options,
+        explanation:"The "+tense+", "+person.label+" of "+verb.inf+' is "'+correctForm+'".' });
+    }
+  }
+  return qs;
+}
+
+// ============================================================
+// STORY QUEST DATA
+// ============================================================
+const STORY_CHAPTERS = [
+  { title:"The Agreement",
+    latin:"Rōma et Alba Longa diū pugnāverant. tandem rēgēs cōnsilium cēpērunt. 'trēs frātrēs contrā trēs frātrēs pugnābunt,' inquit rēx Rōmānus. 'sīc bellum fīnīre placet.'",
+    translation:"Rome and Alba Longa had fought for a long time. At last the kings formed a plan. 'Three brothers will fight against three brothers,' said the Roman king. 'It pleases us to end the war this way.'",
+    questions: [
+      { q:"How long had Rome and Alba Longa been fighting?", options:[{text:"For a long time (diū)",correct:true},{text:"For three days",correct:false},{text:"They had not yet fought",correct:false},{text:"For one year",correct:false}],
+        explanation:"diū = for a long time. pugnāverant is pluperfect — they HAD fought." },
+      { q:"What tense is 'pugnāverant'?", options:[{text:"Pluperfect — they HAD fought",correct:true},{text:"Perfect — they fought",correct:false},{text:"Imperfect — they were fighting",correct:false},{text:"Future — they will fight",correct:false}],
+        explanation:"The -verant ending is the pluperfect marker: perfect stem + eram/erās/erat..." },
+      { q:"What case is 'frātrēs' in 'trēs frātrēs pugnābunt'?", options:[{text:"Nominative — they are the subject",correct:true},{text:"Accusative — they are the object",correct:false},{text:"Ablative — by the brothers",correct:false},{text:"Genitive — of the brothers",correct:false}],
+        explanation:"frātrēs is nominative plural (3rd decl.) — the brothers are DOING the fighting." },
+      { q:"What tense is 'pugnābunt'?", options:[{text:"Future — they WILL fight",correct:true},{text:"Present — they fight",correct:false},{text:"Perfect — they fought",correct:false},{text:"Imperfect — they were fighting",correct:false}],
+        explanation:"1st conjugation future: stem + -bō/-bis/-bit/-bimus/-bitis/-bunt." },
+      { q:"What does 'placet' mean, and what case does the person take?", options:[{text:"It pleases — the person pleased goes in the DATIVE",correct:true},{text:"It pleases — the person pleased goes in the ACCUSATIVE",correct:false},{text:"It decides — the person goes in the NOMINATIVE",correct:false},{text:"It seems — the person goes in the ABLATIVE",correct:false}],
+        explanation:"placet is an impersonal verb. The thing pleasing is nominative, the person pleased is DATIVE." },
+      { q:"What case is 'rēgēs' in 'rēgēs cōnsilium cēpērunt'?", options:[{text:"Nominative — they are the subject (the kings formed a plan)",correct:true},{text:"Accusative — they are the object",correct:false},{text:"Genitive — of the kings",correct:false},{text:"Ablative — by the kings",correct:false}],
+        explanation:"rēgēs is nominative plural (3rd decl.). The kings are DOING the forming of the plan." },
+    ]
+  },
+  { title:"The Brothers Prepare",
+    latin:"Horātiī, trēs frātrēs Rōmānī, arma cēpērunt. Cūriātiī, trēs frātrēs Albānī, quoque sē parāvērunt. utrique fortēs erant. populus timēbat — nam frātrēs ad mortem ībant.",
+    translation:"The Horatii, three Roman brothers, took up arms. The Curiatii, three Alban brothers, also prepared themselves. Both sides were brave. The people feared — for the brothers were going to their death.",
+    questions: [
+      { q:"What case is 'arma' in 'arma cēpērunt'?", options:[{text:"Accusative — it is the object of 'took'",correct:true},{text:"Nominative — it is the subject",correct:false},{text:"Ablative — by/with arms",correct:false},{text:"Genitive — of the arms",correct:false}],
+        explanation:"arma is accusative plural (2nd decl. neuter) — the THING they took." },
+      { q:"What does 'utrique fortēs erant' mean?", options:[{text:"Both sides were brave",correct:true},{text:"All the brothers were fortunate",correct:false},{text:"The Romans were braver",correct:false},{text:"Neither side was strong",correct:false}],
+        explanation:"utrique = both (sides). fortēs = brave. erant = imperfect of sum = were." },
+      { q:"Why did the populus (people) fear?", options:[{text:"Because the brothers were going to their death",correct:true},{text:"Because the enemy was approaching",correct:false},{text:"Because the king was angry",correct:false},{text:"Because the city walls had fallen",correct:false}],
+        explanation:"nam frātrēs ad mortem ībant — for the brothers were going to (their) death." },
+      { q:"What tense is 'timēbat'?", options:[{text:"Imperfect — was fearing / feared (ongoing)",correct:true},{text:"Perfect — feared (completed)",correct:false},{text:"Pluperfect — had feared",correct:false},{text:"Present — fears",correct:false}],
+        explanation:"The -bat ending marks imperfect tense: ongoing or repeated past action." },
+      { q:"What does 'sē parāvērunt' mean and why is 'sē' there?", options:[{text:"They prepared themselves — sē is reflexive (the action comes back to the subject)",correct:true},{text:"They prepared him — sē means 'him'",correct:false},{text:"They were prepared — sē marks the passive",correct:false},{text:"They prepared the plan — sē means 'the plan'",correct:false}],
+        explanation:"sē is the reflexive pronoun. parāvērunt sē = they prepared THEMSELVES. The action reflects back." },
+      { q:"What case is 'mortem' in 'ad mortem ībant'?", options:[{text:"Accusative — 'ad' always takes the accusative",correct:true},{text:"Ablative — from death",correct:false},{text:"Nominative — death is the subject",correct:false},{text:"Dative — to/for death",correct:false}],
+        explanation:"ad + accusative. Always. They were going TO death (direction/motion towards)." },
+    ]
+  },
+  { title:"The Battle",
+    latin:"pugnātum est ācriter. duo Horātiī cecidērunt. trēs Cūriātiī vulnerātī erant sed vīvēbant. ūnus Horātius sōlus stābat. spectātōrēs clāmāvērunt: 'Rōma perit!'",
+    translation:"They fought fiercely. Two of the Horatii fell. Three Curiatii were wounded but alive. One Horatius stood alone. The spectators cried out: 'Rome is lost!'",
+    questions: [
+      { q:"What happened to two of the Horatii?", options:[{text:"They fell (were killed)",correct:true},{text:"They fled from the battle",correct:false},{text:"They were wounded but survived",correct:false},{text:"They surrendered",correct:false}],
+        explanation:"cecidērunt = perfect of cadō (to fall). In military context: they were killed." },
+      { q:"What tense is 'vulnerātī erant'?", options:[{text:"Pluperfect passive — they had been wounded",correct:true},{text:"Imperfect — they were being wounded",correct:false},{text:"Perfect — they were wounded",correct:false},{text:"Present — they are wounded",correct:false}],
+        explanation:"Perfect participle + erant (imperfect of sum) = pluperfect passive." },
+      { q:"What case is 'spectātōrēs' in this passage?", options:[{text:"Nominative — they are the subject (they cried out)",correct:true},{text:"Accusative — they are the object",correct:false},{text:"Genitive — of the spectators",correct:false},{text:"Ablative — by the spectators",correct:false}],
+        explanation:"spectātōrēs clāmāvērunt — the spectators (nom.) cried out." },
+      { q:"What does 'ācriter' mean and what part of speech is it?", options:[{text:"'Fiercely' — it is an adverb modifying how they fought",correct:true},{text:"'Fierce' — it is an adjective describing the soldiers",correct:false},{text:"'A battle' — it is a noun",correct:false},{text:"'They attacked' — it is a verb",correct:false}],
+        explanation:"ācriter is an adverb formed from ācer (fierce). Adverbs tell us HOW something was done." },
+      { q:"What does 'Rōma perit!' mean?", options:[{text:"Rome is lost! / Rome is perishing!",correct:true},{text:"Rome fights!",correct:false},{text:"Rome wins!",correct:false},{text:"Rome retreats!",correct:false}],
+        explanation:"pereō = to perish/die. perit = 3rd sg present. The spectators are crying out in despair." },
+    ]
+  },
+  { title:"The Cunning Flight",
+    latin:"sed Horātius callidus erat. fūgit — nōn quod timēbat, sed quod cōnsilium habēbat. Cūriātiī eum secūtī sunt, sed nōn eōdem tempore — nam vulnera eōs tardāverant. prīmus Cūriātius advēnit. Horātius sē vertit et eum interfēcit.",
+    translation:"But Horatius was cunning. He fled — not because he feared, but because he had a plan. The Curiatii followed him, but not at the same time — for their wounds had slowed them. The first Curiatian arrived. Horatius turned and killed him.",
+    questions: [
+      { q:"Why did Horatius run away?", options:[{text:"He had a plan to separate the wounded Curiatii",correct:true},{text:"He was a coward",correct:false},{text:"He wanted to reach the city walls",correct:false},{text:"The king ordered him to retreat",correct:false}],
+        explanation:"nōn quod timēbat, sed quod cōnsilium habēbat — not because he feared, but because he had a plan." },
+      { q:"What tense is 'tardāverant' (had slowed)?", options:[{text:"Pluperfect — the wounds HAD slowed them",correct:true},{text:"Perfect — the wounds slowed them",correct:false},{text:"Imperfect — the wounds were slowing them",correct:false},{text:"Future — the wounds will slow them",correct:false}],
+        explanation:"tardāverant: perfect stem tardāv- + -erant = pluperfect. The slowing happened BEFORE the chase." },
+      { q:"What case is 'eum' in 'eum interfēcit'?", options:[{text:"Accusative — him (direct object of killed)",correct:true},{text:"Nominative — he",correct:false},{text:"Dative — to/for him",correct:false},{text:"Ablative — by him",correct:false}],
+        explanation:"eum = him (accusative of is). He killed HIM — the object of interfēcit." },
+      { q:"What does 'sē vertit' mean?", options:[{text:"He turned (himself)",correct:true},{text:"He saw himself",correct:false},{text:"He defended himself",correct:false},{text:"He hid himself",correct:false}],
+        explanation:"sē vertit: vertō = I turn. sē = himself (reflexive). He turned himself around to face his pursuer." },
+      { q:"What does 'callidus' mean?", options:[{text:"Cunning / clever",correct:true},{text:"Cowardly",correct:false},{text:"Strong",correct:false},{text:"Angry",correct:false}],
+        explanation:"callidus = cunning, shrewd. Horatius wins not by brute force but by intelligence." },
+      { q:"What does 'nōn quod... sed quod...' mean as a construction?", options:[{text:"Not because... but because... — it gives the REAL reason for an action",correct:true},{text:"Not only... but also... — it adds extra information",correct:false},{text:"Neither... nor... — it denies both options",correct:false},{text:"Sometimes... sometimes... — it shows alternation",correct:false}],
+        explanation:"This construction corrects a wrong assumption. He fled NOT BECAUSE he feared, BUT BECAUSE he had a plan." },
+    ]
+  },
+  { title:"Victory and Triumph",
+    latin:"deinde secundum et tertium Cūriātium interfēcit. victor Horātius ad urbem rediit. spolia hostium ferēbat. Rōmānī eum laudāvērunt: Rōma victrix erat!",
+    translation:"Then he killed the second and third Curiatian. Victorious, Horatius returned to the city. He was carrying the spoils of the enemies. The Romans praised him: Rome was victorious!",
+    questions: [
+      { q:"What tense is 'rediit'?", options:[{text:"Perfect — he returned",correct:true},{text:"Present — he returns",correct:false},{text:"Imperfect — he was returning",correct:false},{text:"Pluperfect — he had returned",correct:false}],
+        explanation:"rediit = perfect of redeō (re + eō). He returned — completed action." },
+      { q:"What case is 'hostium' in 'spolia hostium'?", options:[{text:"Genitive — 'of the enemies' (possession)",correct:true},{text:"Accusative — the enemies",correct:false},{text:"Dative — to/for the enemies",correct:false},{text:"Ablative — by the enemies",correct:false}],
+        explanation:"hostium = genitive plural of hostis (3rd decl.). The spoils OF THE ENEMIES." },
+      { q:"What tense is 'ferēbat'?", options:[{text:"Imperfect — he was carrying (ongoing)",correct:true},{text:"Perfect — he carried",correct:false},{text:"Present — he carries",correct:false},{text:"Future — he will carry",correct:false}],
+        explanation:"ferēbat: imperfect of ferō. The -bat ending = imperfect. He WAS carrying." },
+      { q:"What is Horatius carrying?", options:[{text:"The spoils (armour/weapons) of the enemies",correct:true},{text:"A message for the king",correct:false},{text:"His wounded brothers",correct:false},{text:"A Roman standard",correct:false}],
+        explanation:"spolia hostium = the spoils of the enemies. In Roman custom, taking an enemy's armour was the ultimate trophy." },
+      { q:"What does 'victor' mean here — is it a noun or adjective?", options:[{text:"It works as both — 'the victor / victorious Horatius'",correct:true},{text:"It is only a verb meaning 'he conquered'",correct:false},{text:"It is a preposition meaning 'after'",correct:false},{text:"It is an adverb meaning 'victoriously'",correct:false}],
+        explanation:"victor can function as a noun (the victor) or predicatively (victorious). Here it describes Horatius as he returns." },
+      { q:"What case is 'urbem' in 'ad urbem rediit'?", options:[{text:"Accusative — direction towards (after 'ad')",correct:true},{text:"Ablative — from the city",correct:false},{text:"Dative — to/for the city",correct:false},{text:"Nominative — the city",correct:false}],
+        explanation:"ad + accusative. Motion towards. He returned TO the city." },
+    ]
+  },
+  { title:"The Sister's Grief",
+    latin:"sed soror Horātiī ad portam stābat. sponsa ūnīus Cūriātiī fuerat. ubi pallium sponsī in umerīs frātris vīdit, lacrimāvit et nōmen mortuum vocāvit. Horātius, īrā incēnsus, sorōrem gladiō trānsfīxit.",
+    translation:"But the sister of Horatius was standing at the gate. She had been the fiancée of one of the Curiatii. When she saw her fiancé's cloak on her brother's shoulders, she wept and called out the dead man's name. Horatius, inflamed with anger, stabbed his sister with his sword.",
+    questions: [
+      { q:"What tense is 'fuerat' (she had been)?", options:[{text:"Pluperfect — she HAD been his fiancée",correct:true},{text:"Perfect — she was",correct:false},{text:"Imperfect — she was being",correct:false},{text:"Future — she will be",correct:false}],
+        explanation:"fuerat = pluperfect of sum. fu- (perfect stem) + -erat = she had been." },
+      { q:"What case is 'gladiō' in 'gladiō trānsfīxit'?", options:[{text:"Ablative — 'with a sword' (instrument)",correct:true},{text:"Dative — 'to/for the sword'",correct:false},{text:"Accusative — 'the sword'",correct:false},{text:"Nominative — 'the sword' (subject)",correct:false}],
+        explanation:"gladiō = ablative singular of gladius (2nd decl.). The ablative of instrument: WITH a sword." },
+      { q:"What case is 'sorōrem'?", options:[{text:"Accusative — she is the object (he stabbed HER)",correct:true},{text:"Nominative — she is the subject",correct:false},{text:"Genitive — of the sister",correct:false},{text:"Dative — to the sister",correct:false}],
+        explanation:"sorōrem = accusative singular of soror (3rd decl.). Direct object of trānsfīxit." },
+      { q:"'sīc eat quaecumque Rōmāna lūgēbit hostem' — what does this famous line mean?", options:[{text:"'So perish any Roman woman who mourns an enemy'",correct:true},{text:"'Thus Rome defeats all her enemies'",correct:false},{text:"'Every Roman must fight bravely'",correct:false},{text:"'The enemy will always be destroyed'",correct:false}],
+        explanation:"Horatius's chilling justification. He equates mourning an enemy with treason against Rome." },
+      { q:"What does 'īrā incēnsus' mean literally?", options:[{text:"'Inflamed by anger' — ablative of cause",correct:true},{text:"'Without anger' — he was calm",correct:false},{text:"'Angry fire' — describing the sword",correct:false},{text:"'His anger burned out' — he was tired",correct:false}],
+        explanation:"īrā = ablative of ira (anger). incēnsus = perfect participle of incendō (to set fire to). Literally: 'set on fire by anger.'" },
+      { q:"What case is 'umerīs' in 'in umerīs frātris'?", options:[{text:"Ablative — 'on the shoulders' (in + abl = position)",correct:true},{text:"Accusative — 'onto the shoulders'",correct:false},{text:"Dative — 'to the shoulders'",correct:false},{text:"Genitive — 'of the shoulders'",correct:false}],
+        explanation:"in + ablative = position (on/in). in + accusative = motion (into/onto). Here it's position: ON his shoulders." },
+    ]
+  },
+  { title:"The Trial",
+    latin:"Horātius accūsātus est. cīvēs rogāvērunt: 'estne hērōs an homicīda?' pater Horātiī prō fīliō dīxit: 'fīliam meam iūre caesam iūdicō. sī nōn, patria potestāte fīlium animadvertissem.' populus eum absolvit — sed sub tigillō trānsīre dēbuit.",
+    translation:"Horatius was accused. The citizens asked: 'Is he a hero or a murderer?' The father of Horatius spoke for his son: 'I judge my daughter justly killed. If not, I would have punished my son by my paternal power.' The people acquitted him — but he had to pass under a beam.",
+    questions: [
+      { q:"What question did the citizens ask?", options:[{text:"Is Horatius a hero or a murderer?",correct:true},{text:"Should Rome or Alba Longa rule?",correct:false},{text:"Should the father be punished too?",correct:false},{text:"Should the war continue?",correct:false}],
+        explanation:"estne hērōs an homicīda? The central moral question of the whole story." },
+      { q:"How did the father defend his son?", options:[{text:"He said his daughter was justly killed, and he'd have punished Horatius himself otherwise",correct:true},{text:"He said Horatius was insane",correct:false},{text:"He blamed the Curiatii",correct:false},{text:"He said the gods commanded it",correct:false}],
+        explanation:"The father uses patria potestas — his legal right over the family — to argue the killing was within family authority." },
+      { q:"What does 'patria potestāte' refer to?", options:[{text:"The father's legal power over his family — including life and death",correct:true},{text:"The power of the state over citizens",correct:false},{text:"Military authority of a general",correct:false},{text:"Religious power of a priest",correct:false}],
+        explanation:"Patria potestas = the father's power. A Roman paterfamilias legally held power of life and death over ALL members of his household." },
+      { q:"What ritual did Horatius undergo after acquittal?", options:[{text:"Pass under a beam (tigillum sorōrium) as purification",correct:true},{text:"Sacrifice a bull at the temple of Mars",correct:false},{text:"Go into exile for one year",correct:false},{text:"Pay a fine to the Curiatii family",correct:false}],
+        explanation:"Even after acquittal, Horatius needed ritual purification — the tigillum sorōrium. Even Rome found this morally troubling." },
+      { q:"What does 'accūsātus est' tell us about the voice of this verb?", options:[{text:"It is passive — 'he was accused' (something done TO him)",correct:true},{text:"It is active — 'he accused'",correct:false},{text:"It is deponent — passive form, active meaning",correct:false},{text:"It is subjunctive — 'he might be accused'",correct:false}],
+        explanation:"accūsātus est = perfect passive. The participle + est form = he was accused." },
+      { q:"What does 'prō fīliō' mean and what case is 'fīliō'?", options:[{text:"'For/on behalf of his son' — ablative (prō + ablative)",correct:true},{text:"'Against his son' — accusative",correct:false},{text:"'Of his son' — genitive",correct:false},{text:"'To his son' — dative",correct:false}],
+        explanation:"prō always takes the ablative. The father spoke ON BEHALF OF his son." },
+    ]
+  },
+];
+
+// ============================================================
+// BOSS ROUND DATA
+// ============================================================
+const BOSS_POOL = [
+  { prompt:"In 'frātrēs ad mortem ībant' — what case is 'mortem'?", options:[{text:"Accusative — direction/motion towards",correct:true},{text:"Ablative — from death",correct:false},{text:"Nominative — death as subject",correct:false},{text:"Genitive — of death",correct:false}], explanation:"After 'ad' (to/towards), we always use the accusative case." },
+  { prompt:"Translate: 'Horātius gladium cēpit'", options:[{text:"Horatius took his sword",correct:true},{text:"Horatius gave his sword",correct:false},{text:"Horatius threw his sword",correct:false},{text:"The sword took Horatius",correct:false}], explanation:"cēpit (perfect of capiō) = he took. gladium is accusative = the object." },
+  { prompt:"What tense: 'pugnāverant' (they had fought)?", options:[{text:"Pluperfect",correct:true},{text:"Perfect",correct:false},{text:"Future perfect",correct:false},{text:"Imperfect",correct:false}], explanation:"The -verant ending signals pluperfect: perfect stem + eram/erās/erat..." },
+  { prompt:"'vulnera militum gravia erant' — what case is 'militum'?", options:[{text:"Genitive plural — 'of the soldiers'",correct:true},{text:"Accusative plural",correct:false},{text:"Dative plural",correct:false},{text:"Ablative plural",correct:false}], explanation:"militum is genitive plural of miles (3rd decl.) — wounds OF THE SOLDIERS." },
+  { prompt:"Which is the future tense of 'vincere' (3rd conj., 1st sg)?", options:[{text:"vincam",correct:true},{text:"vincō",correct:false},{text:"vincēbam",correct:false},{text:"vīcī",correct:false}], explanation:"3rd conjugation future uses -am, -ēs, -et pattern (NOT -bō like 1st/2nd)." },
+  { prompt:"Why is the 3rd/4th conjugation future easily confused with the present subjunctive?", options:[{text:"Both use -a- in the 1st person singular",correct:true},{text:"They have identical endings in all persons",correct:false},{text:"They use the same stem",correct:false},{text:"They are not easily confused",correct:false}], explanation:"vincam (fut.) looks like a subjunctive. Context and the other forms (-ēs, -et) confirm it's future." },
+  { prompt:"'rēx populō placuit' — what case is 'populō'?", options:[{text:"Dative — 'was pleasing TO the people'",correct:true},{text:"Ablative — 'by the people'",correct:false},{text:"Nominative",correct:false},{text:"Accusative",correct:false}], explanation:"placet/placuit takes the DATIVE for the person pleased." },
+  { prompt:"What Roman legal concept allows the father to claim authority over his daughter's death?", options:[{text:"Patria potestas — the father's absolute legal power over his family",correct:true},{text:"The right of a citizen to appeal",correct:false},{text:"The power of a magistrate to overrule the senate",correct:false},{text:"The right of a soldier to keep spoils",correct:false}], explanation:"Patria potestas = the father's power. Life and death over all household members." },
+  { prompt:"Which is the pluperfect of 'audiō' (4th conj., 3rd pl)?", options:[{text:"audīverant",correct:true},{text:"audiēbant",correct:false},{text:"audīvērunt",correct:false},{text:"audient",correct:false}], explanation:"Pluperfect = perfect stem + eram etc. audīv + erant = audīverant (they had heard)." },
+  { prompt:"'soror frātris' — what case is 'frātris'?", options:[{text:"Genitive singular — 'of the brother' (3rd decl.)",correct:true},{text:"Nominative",correct:false},{text:"Dative",correct:false},{text:"Accusative",correct:false}], explanation:"frātris = genitive singular of frāter (3rd decl.)." },
+  { prompt:"Translate: 'trēs frātrēs pugnābunt'", options:[{text:"Three brothers will fight",correct:true},{text:"Three brothers fought",correct:false},{text:"Three brothers were fighting",correct:false},{text:"Three brothers had fought",correct:false}], explanation:"pugnābunt: 1st conj. future (-bunt = 3rd pl). They WILL fight." },
+  { prompt:"Was Horatius right to kill his sister? The Romans thought...", options:[{text:"He was acquitted but required ritual purification — morally complex",correct:true},{text:"He was celebrated without consequences",correct:false},{text:"He was executed for murder",correct:false},{text:"He was exiled permanently",correct:false}], explanation:"Acquitted but purified under the tigillum sorōrium — even Rome found it troubling." },
+  { prompt:"What is the future tense of 'audiō' (4th conj., 3rd sg)?", options:[{text:"audiet",correct:true},{text:"audit",correct:false},{text:"audiēbat",correct:false},{text:"audīvit",correct:false}], explanation:"4th conj. future: stem + iam/iēs/iet/iēmus/iētis/ient." },
+  { prompt:"In 'Cūriātiī eum secūtī sunt' — what voice is 'secūtī sunt'?", options:[{text:"Deponent — passive form but active meaning (they followed)",correct:true},{text:"Passive — they were followed",correct:false},{text:"Active — they followed",correct:false},{text:"Middle voice",correct:false}], explanation:"sequor is deponent: passive in form, active in meaning. secūtī sunt = they followed." },
+  { prompt:"What case follows 'contrā'?", options:[{text:"Accusative",correct:true},{text:"Ablative",correct:false},{text:"Genitive",correct:false},{text:"Dative",correct:false}], explanation:"contrā + accusative. Always. 'against' takes the accusative case." },
+  { prompt:"'necesse est pugnāre' means...", options:[{text:"It is necessary to fight",correct:true},{text:"He does not want to fight",correct:false},{text:"Fighting is not allowed",correct:false},{text:"The fight has ended",correct:false}], explanation:"necesse est + infinitive = it is necessary to... A key construction in Unit 18." },
+  { prompt:"What is the difference between 'pugnābō' and 'pugnābam'?", options:[{text:"pugnābō is future (I will fight), pugnābam is imperfect (I was fighting)",correct:true},{text:"Both are imperfect but different persons",correct:false},{text:"pugnābō is present, pugnābam is perfect",correct:false},{text:"They mean the same thing",correct:false}], explanation:"The -bō ending = future 1st sg. The -bam ending = imperfect 1st sg. Don't confuse them!" },
+  { prompt:"'pater fīliōs āmīserat' — what tense is 'āmīserat'?", options:[{text:"Pluperfect — he HAD lost (his sons)",correct:true},{text:"Perfect — he lost",correct:false},{text:"Imperfect — he was losing",correct:false},{text:"Future — he will lose",correct:false}], explanation:"Perfect stem āmīs- + -erat = pluperfect. The father had ALREADY lost his sons before the next event." },
+  { prompt:"In the story, how many Horatii survive the battle?", options:[{text:"One — Publius Horatius",correct:true},{text:"Two — one was wounded",correct:false},{text:"All three survived",correct:false},{text:"None — all died",correct:false}], explanation:"Two Horatii die early. The third uses cunning to win alone." },
+  { prompt:"'cīvēs eum accūsāvērunt' — what case is 'eum'?", options:[{text:"Accusative — him (direct object)",correct:true},{text:"Nominative — he",correct:false},{text:"Genitive — of him",correct:false},{text:"Dative — to him",correct:false}], explanation:"eum = accusative of is/ea/id. The citizens accused HIM." },
+  { prompt:"What tense: 'ferēbat' (he was carrying)?", options:[{text:"Imperfect",correct:true},{text:"Perfect",correct:false},{text:"Pluperfect",correct:false},{text:"Present",correct:false}], explanation:"The -bat ending = imperfect. Ongoing/repeated action in the past." },
+  { prompt:"How does the 1st/2nd conjugation future differ from the 3rd/4th?", options:[{text:"1st/2nd use -bō/-bis/-bit; 3rd/4th use -am/-ēs/-et",correct:true},{text:"They use the same endings",correct:false},{text:"1st/2nd have no future tense",correct:false},{text:"3rd/4th use -bō/-bis/-bit too",correct:false}], explanation:"This is a critical distinction. 1st/2nd: pugnābō, vidēbō. 3rd/4th: vincam, audiam." },
+  { prompt:"Translate: 'spolia hostium portābit'", options:[{text:"He will carry the spoils of the enemies",correct:true},{text:"He carried the spoils of the enemies",correct:false},{text:"He was carrying the spoils of the enemies",correct:false},{text:"He had carried the spoils of the enemies",correct:false}], explanation:"portābit = future (1st conj. -bit). hostium = genitive plural (of the enemies)." },
+  { prompt:"What case is 'patriā' in 'prō patriā pugnāvit'?", options:[{text:"Ablative — prō always takes the ablative",correct:true},{text:"Accusative — direction towards",correct:false},{text:"Nominative — the fatherland",correct:false},{text:"Genitive — of the fatherland",correct:false}], explanation:"prō + ablative. He fought FOR his fatherland." },
+  { prompt:"What was the tigillum sorōrium?", options:[{text:"A wooden beam Horatius had to pass under as ritual purification",correct:true},{text:"The name of Horatius's sword",correct:false},{text:"A Roman court where trials were held",correct:false},{text:"The gate of Alba Longa",correct:false}], explanation:"Even after acquittal, Horatius had to undergo ritual purification by passing under this beam — acknowledging the stain of killing his sister." },
+  { prompt:"'ducēmus' — identify the tense and person", options:[{text:"Future, 1st pl — 'we will lead'",correct:true},{text:"Present, 1st pl — 'we lead'",correct:false},{text:"Imperfect, 1st pl — 'we were leading'",correct:false},{text:"Perfect, 1st pl — 'we led'",correct:false}], explanation:"3rd conj. future: duc + ēmus. The -ēmus ending in 3rd conj. = future 1st pl." },
+  { prompt:"Why did the Curiatii chase Horatius at different speeds?", options:[{text:"They had different wounds, so some were slower than others",correct:true},{text:"They were arguing about who should fight him",correct:false},{text:"Horatius had set traps on the road",correct:false},{text:"The king ordered them to take turns",correct:false}], explanation:"vulnera eōs tardāverant — their wounds had slowed them. Each was wounded differently, so they spread out." },
+  { prompt:"'mīlitibus imperāvit' — what case is 'mīlitibus'?", options:[{text:"Dative — imperō takes the dative (he commanded THE SOLDIERS)",correct:true},{text:"Ablative — by the soldiers",correct:false},{text:"Accusative — the soldiers",correct:false},{text:"Nominative — the soldiers",correct:false}], explanation:"imperō, like other verbs of commanding, takes the DATIVE. He gave orders TO the soldiers." },
+  { prompt:"What does 'sīc eat quaecumque Rōmāna lūgēbit hostem' mean?", options:[{text:"So perish any Roman woman who will mourn an enemy",correct:true},{text:"Thus Rome goes wherever the enemy mourns",correct:false},{text:"Every Roman woman eats with the enemy",correct:false},{text:"This is how Romans destroy their enemies",correct:false}], explanation:"Horatius's justification for killing his sister. He equates mourning an enemy with treason." },
+  { prompt:"What is the pluperfect of 'vincō' (3rd conj., 3rd sg)?", options:[{text:"vīcerat",correct:true},{text:"vincēbat",correct:false},{text:"vīcit",correct:false},{text:"vincet",correct:false}], explanation:"Perfect stem vīc- + -erat = vīcerat (he/she had conquered)." },
+  { prompt:"'virtūtem frātrum laudāvērunt' — what case is 'frātrum'?", options:[{text:"Genitive plural — 'of the brothers'",correct:true},{text:"Accusative plural — 'the brothers'",correct:false},{text:"Dative plural — 'to the brothers'",correct:false},{text:"Ablative plural — 'by the brothers'",correct:false}], explanation:"frātrum = genitive plural of frāter (3rd decl.). They praised the courage OF THE BROTHERS." },
+  { prompt:"The sister was engaged to one of the Curiatii. What is the Latin word for fiancée?", options:[{text:"sponsa",correct:true},{text:"uxor",correct:false},{text:"soror",correct:false},{text:"filia",correct:false}], explanation:"sponsa = fiancée/bride-to-be (from spondeō = to promise). uxor = wife. soror = sister." },
+  { prompt:"Translate the imperfect: 'fortiter pugnābant'", options:[{text:"They were fighting bravely",correct:true},{text:"They will fight bravely",correct:false},{text:"They fought bravely",correct:false},{text:"They had fought bravely",correct:false}], explanation:"pugnābant = imperfect 3rd pl (the -bant ending). They were fighting — ongoing past action." },
+  { prompt:"What case is 'urbī' in 'urbī appropinquāvit'?", options:[{text:"Dative — he approached THE CITY (verbs of approaching take dative)",correct:true},{text:"Ablative — from the city",correct:false},{text:"Genitive — of the city",correct:false},{text:"Nominative — the city",correct:false}], explanation:"Some verbs like appropinquō take the dative. He approached TO the city." },
+  { prompt:"What is the future of 'mittere' (3rd conj., 1st sg)?", options:[{text:"mittam",correct:true},{text:"mittō",correct:false},{text:"mittēbam",correct:false},{text:"mīsī",correct:false}], explanation:"3rd conj. future 1st sg: stem + -am. mittam = I will send." },
+  { prompt:"In Roman law, could a father really execute his own children?", options:[{text:"Yes — patria potestas gave the father legal power of life and death over his family",correct:true},{text:"No — this was always illegal in Rome",correct:false},{text:"Only with permission from the Senate",correct:false},{text:"Only during wartime",correct:false}], explanation:"Patria potestas was real and absolute in early Rome, though rarely exercised to this extreme in later periods." },
+];
+
+function generateBossQuestions(count) {
+  return [...BOSS_POOL].sort(()=>Math.random()-0.5).slice(0,count).map(q=>({...q,options:[...q.options].sort(()=>Math.random()-0.5)}));
+}
+
+// ============================================================
+// SHARED COMPONENTS
+// ============================================================
+const Card = ({children, style={}, glow=false, className=""}) => (
+  <div className={className} style={{
+    background:T.surface, border:"1px solid "+(glow?T.gold:T.border), borderRadius:"8px",
+    padding:"20px", marginBottom:"16px",
+    boxShadow: glow?"0 0 20px "+T.goldDim+"40":"0 2px 8px #00000040", ...style
+  }}>{children}</div>
+);
+
+const Btn = ({children, onClick, variant="default", disabled=false, style={}}) => {
+  const base = { padding:"10px 20px", border:"none", borderRadius:"6px", fontFamily:SANS,
+    fontSize:"14px", cursor:disabled?"not-allowed":"pointer", opacity:disabled?0.5:1,
+    transition:"all 0.2s", fontWeight:"600", ...style };
+  const v = {
+    default:{background:T.surfaceLight,color:T.text,border:"1px solid "+T.border},
+    gold:{background:"linear-gradient(135deg,"+T.gold+","+T.bronze+")",color:"#1a1611"},
+    crimson:{background:T.crimson,color:T.text},
+    green:{background:T.green,color:T.text},
+    ghost:{background:"transparent",color:T.textDim,border:"1px solid "+T.border},
+  };
+  return <button onClick={disabled?undefined:onClick} style={{...base,...v[variant]}} disabled={disabled}>{children}</button>;
+};
+
+const XPBadge = ({xp}) => (
+  <span style={{ display:"inline-flex",alignItems:"center",gap:"4px",
+    background:T.gold+"20",border:"1px solid "+T.goldDim,borderRadius:"20px",padding:"4px 12px",
+    fontFamily:SANS,fontSize:"13px",color:T.gold,fontWeight:"700" }}>⚡ {xp} XP</span>
+);
+
+const ProgressBar = ({current,total,color=T.gold}) => (
+  <div style={{background:T.surfaceLight,borderRadius:"10px",height:"8px",overflow:"hidden",margin:"8px 0"}}>
+    <div style={{ width:Math.min((current/total)*100,100)+"%", height:"100%",
+      background:"linear-gradient(90deg,"+color+","+color+"cc)", borderRadius:"10px", transition:"width 0.5s ease" }}/>
+  </div>
+);
+
+// ============================================================
+// LOGIN SCREEN
+// ============================================================
+const LoginScreen = ({onLogin}) => {
+  const [name,setName] = useState("");
+  const [classGroup,setClassGroup] = useState("");
+
+  useEffect(()=>{ const u=loadUser(); if(u) onLogin(u); },[]);
+
+  const handleLogin = () => {
+    if(!name.trim()||!classGroup.trim()) return;
+    const user = {name:name.trim(),classGroup:classGroup.trim(),xp:0,sessions:0};
+    saveUser(user); updateLeaderboard(user.name,user.classGroup,0); onLogin(user);
+  };
+
+  return (
+    <div style={{display:"flex",justifyContent:"center",alignItems:"center",minHeight:"100vh",background:T.bg,padding:"20px"}}>
+      <div style={{maxWidth:"420px",width:"100%",textAlign:"center"}}>
+        <p style={{fontFamily:SERIF,fontSize:"11px",color:T.textMuted,letterSpacing:"4px",textTransform:"uppercase",marginBottom:"8px"}}>Unit 18 · The Horatii and Curiatii</p>
+        <h1 style={{fontFamily:SERIF,fontSize:"40px",color:T.gold,margin:"0 0 4px 0",fontWeight:"400",letterSpacing:"2px"}}>ARENA LATINA</h1>
+        <div style={{width:"60px",height:"2px",background:"linear-gradient(90deg,transparent,"+T.gold+",transparent)",margin:"12px auto 20px"}}/>
+        <p style={{fontFamily:SERIF,fontSize:"15px",color:T.textDim,fontStyle:"italic",marginBottom:"32px"}}>Master the grammar. Know the story. Claim the glory.</p>
+        <Card>
+          <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,marginBottom:"16px"}}>Enter your details to begin</p>
+          <input type="text" placeholder="Your name" value={name} onChange={e=>setName(e.target.value)}
+            style={{width:"100%",padding:"12px 16px",background:T.surfaceLight,border:"1px solid "+T.border,borderRadius:"6px",color:T.text,fontFamily:SANS,fontSize:"15px",marginBottom:"12px"}}/>
+          <input type="text" placeholder="Class (e.g. 10A)" value={classGroup} onChange={e=>setClassGroup(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()}
+            style={{width:"100%",padding:"12px 16px",background:T.surfaceLight,border:"1px solid "+T.border,borderRadius:"6px",color:T.text,fontFamily:SANS,fontSize:"15px",marginBottom:"20px"}}/>
+          <Btn variant="gold" onClick={handleLogin} disabled={!name.trim()||!classGroup.trim()} style={{width:"100%",padding:"14px",fontSize:"16px"}}>Enter the Arena ⚔</Btn>
+        </Card>
+        <Card style={{background:T.crimsonDark+"40",border:"1px solid "+T.crimson+"40"}}>
+          <p style={{fontFamily:SANS,fontSize:"13px",color:T.crimsonLight,fontWeight:"600",marginBottom:"4px"}}>🏆 Top 5 = 5% exam bonus</p>
+          <p style={{fontFamily:SANS,fontSize:"12px",color:T.textMuted}}>The leaderboard tracks your XP across all sessions. The top 5 players earn a 5% upgrade on their end-of-unit exam.</p>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// QUIZ ENGINE
+// ============================================================
+const QuizEngine = ({questions,title,icon,onComplete,xpPerCorrect=10,streakBonus=5,perfectBonus=50}) => {
+  const [idx,setIdx]=useState(0);
+  const [score,setScore]=useState(0);
+  const [streak,setStreak]=useState(0);
+  const [selected,setSelected]=useState(null);
+  const [showResult,setShowResult]=useState(false);
+  const [xpEarned,setXpEarned]=useState(0);
+  const [done,setDone]=useState(false);
+  const q = questions[idx];
+
+  const handleSelect = (i) => {
+    if(showResult) return;
+    setSelected(i); setShowResult(true);
+    if(q.options[i].correct) {
+      const bonus=Math.min(streak*streakBonus,25);
+      setScore(s=>s+1); setStreak(s=>s+1); setXpEarned(x=>x+xpPerCorrect+bonus);
+    } else setStreak(0);
+  };
+
+  const handleNext = () => {
+    if(idx+1>=questions.length) {
+      const finalXP = xpEarned + (score===questions.length?perfectBonus:0);
+      setDone(true); onComplete(finalXP,score,questions.length);
+    } else { setIdx(i=>i+1); setSelected(null); setShowResult(false); }
+  };
+
+  if(done) return null;
+
+  return (
+    <div className="fade-in">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+        <span style={{fontFamily:SANS,fontSize:"13px",color:T.textDim}}>{icon} {title}</span>
+        <div style={{display:"flex",gap:"12px",alignItems:"center"}}>
+          {streak>=2 && <span className="streak-anim" style={{fontFamily:SANS,fontSize:"12px",color:T.goldBright}}>🔥 {streak} streak</span>}
+          <XPBadge xp={xpEarned}/>
+        </div>
+      </div>
+      <ProgressBar current={idx+1} total={questions.length}/>
+      <p style={{fontFamily:SANS,fontSize:"12px",color:T.textMuted,marginBottom:"16px"}}>Question {idx+1} of {questions.length}</p>
+      <Card glow>
+        <p style={{fontFamily:SERIF,fontSize:"18px",color:T.text,marginBottom:"8px",lineHeight:"1.5"}}>
+          {q.prompt || q.q || 'What case is "'+q.form+'"?'}
+        </p>
+        {q.subPrompt && <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,marginBottom:"4px"}}>{q.subPrompt}</p>}
+        {q.form && <p style={{fontFamily:SERIF,fontSize:"14px",color:T.textDim,marginBottom:"4px"}}>{q.noun} ({q.meaning}) — {q.declension} — {q.number}</p>}
+      </Card>
+      <div style={{display:"grid",gap:"8px",marginBottom:"16px"}}>
+        {q.options.map((opt,i) => {
+          let bg=T.surfaceLight, bc=T.border, tc=T.text;
+          if(showResult) {
+            if(opt.correct){bg=T.green+"30";bc=T.green;tc=T.greenLight;}
+            else if(i===selected&&!opt.correct){bg=T.red+"30";bc=T.red;tc=T.red;}
+          }
+          return <button key={i} onClick={()=>handleSelect(i)} disabled={showResult}
+            style={{padding:"14px 18px",background:bg,border:"1px solid "+bc,borderRadius:"8px",color:tc,
+              fontFamily:SANS,fontSize:"14px",textAlign:"left",cursor:showResult?"default":"pointer",
+              transition:"all 0.2s",lineHeight:"1.4"}}>{opt.text}</button>;
+        })}
+      </div>
+      {showResult && <div className="fade-in">
+        {(q.explanation||(q.correctCase&&q.correctJob)) &&
+          <Card style={{background:T.blue+"15",border:"1px solid "+T.blue+"40"}}>
+            <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,lineHeight:"1.5"}}>
+              💡 {q.explanation || (<span><strong style={{color:T.text}}>{q.correctCase}</strong> — {q.correctJob}</span>)}
+            </p>
+          </Card>
+        }
+        <Btn variant="gold" onClick={handleNext} style={{width:"100%"}}>
+          {idx+1>=questions.length?"See Results →":"Next Question →"}
+        </Btn>
+      </div>}
+    </div>
+  );
+};
+
+// ============================================================
+// COMPLETION SCREEN
+// ============================================================
+const CompletionScreen = ({xp,score,total,title,onBack}) => {
+  const pct=Math.round((score/total)*100);
+  const grade=pct===100?"PERFECT":pct>=80?"EXCELLENT":pct>=60?"GOOD":"KEEP PRACTISING";
+  const gc=pct===100?T.goldBright:pct>=80?T.green:pct>=60?T.blue:T.textDim;
+  const emoji=pct===100?"🏆":pct>=80?"⚔":pct>=60?"🛡":"📚";
+  return (
+    <div style={{textAlign:"center",padding:"20px 0"}} className="fade-in">
+      <p style={{fontFamily:SERIF,fontSize:"48px",margin:"0 0 8px 0"}}>{emoji}</p>
+      <h2 style={{fontFamily:SERIF,fontSize:"28px",color:gc,margin:"0 0 4px 0"}}>{grade}</h2>
+      <p style={{fontFamily:SANS,fontSize:"14px",color:T.textDim,marginBottom:"20px"}}>{title}</p>
+      <Card glow={pct===100} className={pct===100?"pulse-gold":""}>
+        <div style={{display:"flex",justifyContent:"center",gap:"32px",flexWrap:"wrap"}}>
+          <div><p style={{fontFamily:SANS,fontSize:"32px",color:T.gold,fontWeight:"700",margin:0}}>{xp}</p><p style={{fontFamily:SANS,fontSize:"12px",color:T.textMuted}}>XP earned</p></div>
+          <div><p style={{fontFamily:SANS,fontSize:"32px",color:T.text,fontWeight:"700",margin:0}}>{score}/{total}</p><p style={{fontFamily:SANS,fontSize:"12px",color:T.textMuted}}>correct</p></div>
+          <div><p style={{fontFamily:SANS,fontSize:"32px",color:gc,fontWeight:"700",margin:0}}>{pct}%</p><p style={{fontFamily:SANS,fontSize:"12px",color:T.textMuted}}>accuracy</p></div>
+        </div>
+      </Card>
+      {pct===100 && <p style={{fontFamily:SERIF,fontSize:"14px",color:T.gold,fontStyle:"italic",margin:"12px 0"}}>+50 bonus XP for a perfect round!</p>}
+      <Btn variant="gold" onClick={onBack} style={{marginTop:"16px"}}>← Back to Arena</Btn>
+    </div>
+  );
+};
+
+// ============================================================
+// LEADERBOARD
+// ============================================================
+const Leaderboard = ({currentUser}) => {
+  const lb = loadLeaderboard();
+  const entries = Object.values(lb).sort((a,b)=>b.xp-a.xp);
+  const top5 = entries.slice(0,5);
+  const rest = entries.slice(5,15);
+  const userRank = entries.findIndex(e=>e.name===currentUser.name)+1;
+  const medals=["🥇","🥈","🥉","4th","5th"];
+
+  return (
+    <div className="fade-in">
+      <div style={{textAlign:"center",marginBottom:"24px"}}>
+        <p style={{fontFamily:SERIF,fontSize:"11px",color:T.textMuted,letterSpacing:"3px",textTransform:"uppercase",marginBottom:"4px"}}>ARENA LATINA</p>
+        <h2 style={{fontFamily:SERIF,fontSize:"28px",color:T.gold,margin:"0 0 8px 0"}}>🏆 Leaderboard</h2>
+        <Card style={{background:T.crimsonDark+"40",border:"1px solid "+T.crimson+"40",display:"inline-block"}}>
+          <p style={{fontFamily:SANS,fontSize:"13px",color:T.crimsonLight}}>⚡ Top 5 earn a <strong>5% bonus</strong> on the end-of-unit exam</p>
+        </Card>
+      </div>
+      {top5.length===0 ? <Card><p style={{color:T.textDim,textAlign:"center",fontFamily:SANS}}>No entries yet — be the first!</p></Card> :
+        top5.map((entry,i) => {
+          const isU = entry.name===currentUser.name;
+          return <Card key={i} glow={i===0} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+            background:isU?T.gold+"10":i<3?T.gold+"08":T.surface,border:"1px solid "+(isU?T.gold:T.goldDim+"40")}}>
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <span style={{fontFamily:SANS,fontSize:i<3?"24px":"14px",width:"36px",textAlign:"center",color:i<3?T.gold:T.textDim}}>{medals[i]}</span>
+              <div><p style={{fontFamily:SANS,fontSize:"15px",color:isU?T.gold:T.text,fontWeight:"600",margin:0}}>{entry.name} {isU&&"(you)"}</p>
+                <p style={{fontFamily:SANS,fontSize:"12px",color:T.textMuted,margin:0}}>{entry.classGroup}</p></div>
+            </div>
+            <XPBadge xp={entry.xp}/>
+          </Card>;
+        })
+      }
+      {rest.length>0 && <div style={{marginTop:"16px"}}>
+        <p style={{fontFamily:SANS,fontSize:"12px",color:T.textMuted,marginBottom:"8px"}}>Others:</p>
+        {rest.map((entry,i) => {
+          const isU=entry.name===currentUser.name;
+          return <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 16px",borderBottom:"1px solid "+T.border+"20",background:isU?T.gold+"08":"transparent"}}>
+            <span style={{fontFamily:SANS,fontSize:"13px",color:isU?T.gold:T.textDim}}>#{i+6} {entry.name} {isU&&"(you)"} <span style={{color:T.textMuted}}>· {entry.classGroup}</span></span>
+            <span style={{fontFamily:SANS,fontSize:"12px",color:T.goldDim}}>⚡ {entry.xp}</span>
+          </div>;
+        })}
+      </div>}
+      {userRank>0 && <Card style={{marginTop:"20px",textAlign:"center"}}>
+        <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim}}>Your rank: <strong style={{color:userRank<=5?T.gold:T.text}}>#{userRank}</strong>
+          {userRank<=5?" — You're in the top 5! 🏆":entries.length>0&&top5.length>=5?" — "+Math.max(0,top5[4].xp-currentUser.xp)+" XP to reach top 5":" — Keep going!"}
+        </p>
+      </Card>}
+    </div>
+  );
+};
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function App() {
+  const [user,setUser]=useState(null);
+  const [mode,setMode]=useState("home");
+  const [subMode,setSubMode]=useState(null);
+  const [gameQs,setGameQs]=useState(null);
+  const [completion,setCompletion]=useState(null);
+
+  const addXP = (amount) => {
+    const nu = {...user,xp:user.xp+amount,sessions:user.sessions+1};
+    setUser(nu); saveUser(nu); updateLeaderboard(nu.name,nu.classGroup,nu.xp);
+  };
+
+  const handleComplete = (xp,score,total) => {
+    addXP(xp);
+    const labels={declension:"Declension Arena",verbs:"Verb Forge",story:"Story Quest",boss:"Boss Round"};
+    setCompletion({xp,score,total,title:labels[mode]||"Round"});
+  };
+
+  const goHome = ()=>{setMode("home");setSubMode(null);setGameQs(null);setCompletion(null);};
+
+  const resetProfile = ()=>{
+    if(confirm("This will reset your name and class (your XP stays on the leaderboard). Continue?")) {
+      localStorage.removeItem("arena-latina-user"); setUser(null); setMode("home");
+    }
+  };
+
+  if(!user) return <LoginScreen onLogin={setUser}/>;
+
+  if(completion) return (
+    <div style={{background:T.bg,minHeight:"100vh",padding:"20px"}}>
+      <div style={{maxWidth:"560px",margin:"0 auto"}}><CompletionScreen {...completion} onBack={goHome}/></div>
+    </div>
+  );
+
+  return (
+    <div style={{background:T.bg,minHeight:"100vh",color:T.text}}>
+      {/* Header */}
+      <div style={{background:T.surface,borderBottom:"1px solid "+T.border,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"16px"}}>
+          <span onClick={goHome} style={{fontFamily:SERIF,fontSize:"18px",color:T.gold,cursor:"pointer",letterSpacing:"1px"}}>ARENA LATINA</span>
+          {mode!=="home" && <button onClick={goHome} style={{background:"none",border:"none",color:T.textDim,fontFamily:SANS,fontSize:"13px",cursor:"pointer"}}>← Back</button>}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+          <span onClick={resetProfile} style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,cursor:"pointer"}} title="Click to reset profile">{user.name}</span>
+          <XPBadge xp={user.xp}/>
+        </div>
+      </div>
+
+      <div style={{maxWidth:"640px",margin:"0 auto",padding:"20px"}}>
+
+        {/* HOME */}
+        {mode==="home" && <div className="fade-in">
+          <div style={{textAlign:"center",marginBottom:"28px",paddingTop:"12px"}}>
+            <h2 style={{fontFamily:SERIF,fontSize:"24px",color:T.gold,margin:"0 0 4px 0"}}>Welcome back, {user.name}</h2>
+            <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim}}>Total XP: <strong style={{color:T.gold}}>{user.xp}</strong> · Sessions: {user.sessions}</p>
+          </div>
+          <div style={{display:"grid",gap:"12px"}}>
+
+            <Card style={{cursor:"pointer"}} onClick={()=>{setGameQs(generateDeclensionQuestions(10));setCompletion(null);setMode("declension");}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div><p style={{fontFamily:SERIF,fontSize:"20px",color:T.text,margin:"0 0 4px 0"}}>🏛 Declension Arena</p>
+                  <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,margin:0}}>Identify cases across 1st, 2nd, and 3rd declensions</p></div>
+                <span style={{fontFamily:SANS,fontSize:"12px",color:T.goldDim}}>10 XP →</span>
+              </div>
+            </Card>
+
+            <Card>
+              <p style={{fontFamily:SERIF,fontSize:"20px",color:T.text,margin:"0 0 8px 0"}}>🔥 Verb Forge</p>
+              <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,margin:"0 0 12px 0"}}>Conjugation challenges — choose your tenses</p>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>
+                {TENSES.map(t=><Btn key={t} variant="default" onClick={()=>{setGameQs(generateVerbQuestions(10,[t]));setCompletion(null);setMode("verbs");}} style={{fontSize:"12px",padding:"8px 14px",textTransform:"capitalize"}}>{t}</Btn>)}
+                <Btn variant="gold" onClick={()=>{setGameQs(generateVerbQuestions(10,TENSES));setCompletion(null);setMode("verbs");}} style={{fontSize:"12px",padding:"8px 14px"}}>⚡ ALL TENSES</Btn>
+              </div>
+            </Card>
+
+            <Card>
+              <p style={{fontFamily:SERIF,fontSize:"20px",color:T.text,margin:"0 0 8px 0"}}>📜 Story Quest</p>
+              <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,margin:"0 0 12px 0"}}>The Horatii and Curiatii — grammar meets narrative</p>
+              <div style={{display:"grid",gap:"6px"}}>
+                {STORY_CHAPTERS.map((ch,i)=>
+                  <button key={i} onClick={()=>{setGameQs(ch.questions.map(q=>({...q,prompt:q.q,options:[...q.options].sort(()=>Math.random()-0.5)})));setSubMode(i);setCompletion(null);setMode("story");}}
+                    style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.surfaceLight,border:"1px solid "+T.border,borderRadius:"6px",color:T.text,fontFamily:SANS,fontSize:"13px",cursor:"pointer",textAlign:"left"}}>
+                    <span>Ch. {i+1}: {ch.title}</span>
+                    <span style={{color:T.textMuted,fontSize:"12px"}}>{ch.questions.length} Qs →</span>
+                  </button>
+                )}
+              </div>
+            </Card>
+
+            <Card style={{cursor:"pointer",background:T.crimsonDark+"30",border:"1px solid "+T.crimson+"40"}}
+              onClick={()=>{setGameQs(generateBossQuestions(8));setCompletion(null);setMode("boss");}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div><p style={{fontFamily:SERIF,fontSize:"20px",color:T.crimsonLight,margin:"0 0 4px 0"}}>⚔ Boss Round</p>
+                  <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,margin:0}}>Mixed challenges — grammar, translation, story. <strong style={{color:T.gold}}>2× XP!</strong></p></div>
+                <span style={{fontFamily:SANS,fontSize:"12px",color:T.crimsonLight}}>20 XP →</span>
+              </div>
+            </Card>
+
+            <Card style={{cursor:"pointer"}} onClick={()=>setMode("leaderboard")}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div><p style={{fontFamily:SERIF,fontSize:"20px",color:T.gold,margin:"0 0 4px 0"}}>🏆 Leaderboard</p>
+                  <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,margin:0}}>See who leads — top 5 get the 5% exam bonus</p></div>
+                <span style={{color:T.goldDim,fontSize:"20px"}}>→</span>
+              </div>
+            </Card>
+          </div>
+        </div>}
+
+        {/* GAME MODES */}
+        {mode==="declension" && gameQs && <QuizEngine questions={gameQs} title="Declension Arena" icon="🏛" onComplete={handleComplete}/>}
+        {mode==="verbs" && gameQs && <QuizEngine questions={gameQs} title="Verb Forge" icon="🔥" onComplete={handleComplete}/>}
+        {mode==="story" && gameQs && <div>
+          {subMode!==null && <Card style={{marginBottom:"16px",background:T.blue+"10",border:"1px solid "+T.blue+"30"}} className="fade-in">
+            <p style={{fontFamily:SERIF,fontSize:"16px",color:T.gold,marginBottom:"8px"}}>Chapter {subMode+1}: {STORY_CHAPTERS[subMode].title}</p>
+            <p style={{fontFamily:SERIF,fontSize:"15px",color:T.textDim,fontStyle:"italic",lineHeight:"1.6",marginBottom:"8px"}}>{STORY_CHAPTERS[subMode].latin}</p>
+            <details style={{cursor:"pointer"}}><summary style={{fontFamily:SANS,fontSize:"12px",color:T.textMuted}}>▶ Show translation</summary>
+              <p style={{fontFamily:SANS,fontSize:"13px",color:T.textDim,marginTop:"8px",lineHeight:"1.5"}}>{STORY_CHAPTERS[subMode].translation}</p>
+            </details>
+          </Card>}
+          <QuizEngine questions={gameQs} title={"Story Quest — Ch."+(subMode!==null?subMode+1:"")} icon="📜" onComplete={handleComplete} xpPerCorrect={15}/>
+        </div>}
+        {mode==="boss" && gameQs && <QuizEngine questions={gameQs} title="Boss Round" icon="⚔" onComplete={handleComplete} xpPerCorrect={20} streakBonus={10} perfectBonus={100}/>}
+
+        {/* LEADERBOARD */}
+        {mode==="leaderboard" && <Leaderboard currentUser={user}/>}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>, document.getElementById("root"));
+</script>
+</body>
+</html>
